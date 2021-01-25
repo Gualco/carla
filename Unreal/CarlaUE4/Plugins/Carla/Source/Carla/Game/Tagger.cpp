@@ -16,6 +16,9 @@
 
 namespace crp = carla::rpc;
 
+uint32 ATagger::instanceCounter = 23;
+std::map<int, uint32> ATagger::instanceActorMap = {{0, 0}};
+
 template <typename T>
 static auto CastEnum(T label)
 {
@@ -65,14 +68,17 @@ void ATagger::SetStencilValue(
 void ATagger::TagActor(const AActor &Actor, bool bTagForSemanticSegmentation)
 {
 #ifdef CARLA_TAGGER_EXTRA_LOG
-  UE_LOG(LogCarla, Log, TEXT("Actor: %s"), *Actor.GetName());
+  UE_LOG(LogCarla, Log, TEXT("Actor: %s %i"), *Actor.GetName(), *Actor.GetUniqueID());
 #endif // CARLA_TAGGER_EXTRA_LOG
+
+  // get Actor ID for vehicle instance segmentation
+  const auto actorID = Actor.GetUniqueID();
 
   // Iterate static meshes.
   TArray<UStaticMeshComponent *> StaticMeshComponents;
   Actor.GetComponents<UStaticMeshComponent>(StaticMeshComponents);
   for (UStaticMeshComponent *Component : StaticMeshComponents) {
-    const auto Label = GetLabelByPath(Component->GetStaticMesh());
+    const auto Label = GetInstanceLabel(Component->GetStaticMesh(), actorID);
     SetStencilValue(*Component, Label, bTagForSemanticSegmentation);
 #ifdef CARLA_TAGGER_EXTRA_LOG
     UE_LOG(LogCarla, Log, TEXT("  + StaticMeshComponent: %s"), *Component->GetName());
@@ -84,7 +90,7 @@ void ATagger::TagActor(const AActor &Actor, bool bTagForSemanticSegmentation)
   TArray<USkeletalMeshComponent *> SkeletalMeshComponents;
   Actor.GetComponents<USkeletalMeshComponent>(SkeletalMeshComponents);
   for (USkeletalMeshComponent *Component : SkeletalMeshComponents) {
-    const auto Label = GetLabelByPath(Component->GetPhysicsAsset());
+      const auto Label = GetInstanceLabel(Component->GetPhysicsAsset(), actorID);
     SetStencilValue(*Component, Label, bTagForSemanticSegmentation);
 #ifdef CARLA_TAGGER_EXTRA_LOG
     UE_LOG(LogCarla, Log, TEXT("  + SkeletalMeshComponent: %s"), *Component->GetName());

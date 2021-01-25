@@ -76,7 +76,34 @@ public:
     const FString Path = Object->GetPathName();
     TArray<FString> StringArray;
     Path.ParseIntoArray(StringArray, TEXT("/"), false);
+
     return (StringArray.Num() > 4 ? GetLabelByFolderName(StringArray[4]) : crp::CityObjectLabel::None);
+  }
+
+  /// Method that computes the instance label corresponding to a vehicle labled with 10u
+  /// using GetLabelByPath and in internal instance counter, maximum lables for overflow 5000
+  template <typename T>
+  static crp::CityObjectLabel GetInstanceLabel(const T *Object, const int actorID) {
+    const auto label = GetLabelByPath(Object);
+
+    if ( ((uint32) label) == 10u) {
+        if( instanceActorMap.find(actorID) == instanceActorMap.end()) {
+                instanceCounter++;
+                instanceActorMap.insert(Int_Pair(actorID, instanceCounter));
+        }
+        // bounded by https://docs.unrealengine.com/en-US/API/Runtime/Engine/Components/UPrimitiveComponent/SetCustomDepthStencilValue/index.html
+        // UPrimitiveComponent::SetCustomDepthStencilValue
+        // to range from 0-255
+        int tmp = (instanceActorMap.at(actorID) % 256);
+        if (tmp < 23) {
+            const auto labelb =(crp::CityObjectLabel) (tmp + 23);
+            return labelb;
+        } else {
+            const auto labela = (crp::CityObjectLabel) tmp;
+            return labela;
+        }
+    }
+    return label;
   }
 
   static void SetStencilValue(UPrimitiveComponent &Component,
@@ -97,4 +124,9 @@ private:
 
   UPROPERTY(Category = "Tagger", EditAnywhere)
   bool bTagForSemanticSegmentation = false;
+
+  // instance segmentation values
+  static uint32 instanceCounter;
+  static std::map<int, uint32> instanceActorMap;
+  typedef std::pair<int, uint32> Int_Pair;
 };
